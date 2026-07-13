@@ -1,6 +1,7 @@
 #include "network_manager.h"
 #include "soil_moisture.h"
 #include "bme280_manager.h"
+#include "actuator_manager.h"
 #include <string.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -47,6 +48,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 // HTTP GET handler for URI: /api/status
 static esp_err_t status_get_handler(httpd_req_t *req)
 {
+    actuator_set_led_blue(false);
     char json_response[128];
     
     // Fetch live data from our soil_moisture component API
@@ -65,6 +67,7 @@ static esp_err_t status_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, json_response, HTTPD_RESP_USE_STRLEN);
+    actuator_set_led_blue(true);
     
     return ESP_OK;
 }
@@ -137,7 +140,7 @@ esp_err_t network_manager_start(const char *ssid, const char *password, const ch
 
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "Connected to AP SSID: %s", ssid);
-        
+        actuator_set_led_blue(true);
         // 5. Initialize and configure mDNS service
         ESP_ERROR_CHECK(mdns_init());
         ESP_ERROR_CHECK(mdns_hostname_set(hostname));
