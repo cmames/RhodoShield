@@ -5,6 +5,7 @@
 #include <nvs_flash.h>
 #include "soil_moisture.h"
 #include "network_manager.h"
+#include "bme280_manager.h"
 
 
 #ifdef RUN_CALIBRATION_MODE
@@ -28,7 +29,10 @@ void rhodoshield(void)
         ESP_LOGE(TAG, "Aborting: Soil moisture layer setup failed.");
         return;
     }
-
+    // Initialize bme280 atmosperic metrics interface
+    if (bme280_manager_init() != ESP_OK) {
+        ESP_LOGW(TAG, "BME280 setup failed. Running without atmospheric metrics.");
+    }
     // Launch complete network stack (WiFi + mDNS + HTTP Server)
     if (network_manager_start(WIFI_SSID, WIFI_PASSWORD, MDNS_HOSTNAME) != ESP_OK) {
         ESP_LOGE(TAG, "Network layer failed to start. Device running offline.");
