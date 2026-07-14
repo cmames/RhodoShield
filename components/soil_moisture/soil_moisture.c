@@ -57,7 +57,7 @@ float soil_moisture_get_percentage(void)
     if (mean_raw > MOISTURE_ADC_MAX_DRY) mean_raw = MOISTURE_ADC_MAX_DRY;
     if (mean_raw < MOISTURE_ADC_MIN_WET) mean_raw = MOISTURE_ADC_MIN_WET;
 
-    // Map linearly: MIN_WET (678) -> 100%, MAX_DRY (2967) -> 0%
+    // Map linearly: MIN_WET -> 100%, MAX_DRY -> 0%
     float percentage = ((float)(MOISTURE_ADC_MAX_DRY - mean_raw) / (MOISTURE_ADC_MAX_DRY - MOISTURE_ADC_MIN_WET)) * 100.0f;
 
     return percentage;

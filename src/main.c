@@ -5,9 +5,10 @@
 #include <nvs_flash.h>
 
 #include "soil_moisture.h"
-#include "network_manager.h"
 #include "bme280_manager.h"
 #include "actuator_manager.h"
+#include "wifi_manager.h"
+#include "http_api_manager.h"
 #include "sntp_manager.h"
 
 #ifdef RUN_CALIBRATION_MODE
@@ -103,10 +104,12 @@ void rhodoshield(void)
         ESP_LOGW(TAG, "BME280 setup failed. Running without atmospheric metrics.");
     }
 
-    if (network_manager_start(WIFI_SSID, WIFI_PASSWORD, MDNS_HOSTNAME) != ESP_OK) {
+    if (wifi_start(WIFI_SSID, WIFI_PASSWORD, MDNS_HOSTNAME) != ESP_OK) {
         ESP_LOGE(TAG, "Network layer failed to start. Running local mode.");
     } else {
+        actuator_set_led_blue(true);
         initialize_sntp();
+        api_webserver_start();
     }
 
     ESP_LOGI(TAG, "RhodoShield firmware fully operational. Launching automation scheduler...");

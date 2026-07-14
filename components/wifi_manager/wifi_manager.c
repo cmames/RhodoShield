@@ -1,7 +1,4 @@
-#include "network_manager.h"
-#include "soil_moisture.h"
-#include "bme280_manager.h"
-#include "actuator_manager.h"
+#include "wifi_manager.h"
 #include <string.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -11,17 +8,14 @@
 #include <esp_log.h>
 #include <nvs_flash.h>
 #include <mdns.h>
-#include <esp_http_server.h>
 
-static const char *TAG = "NET_MANAGER";
+static const char *TAG = "WIFI_MANAGER";
 
 // Event group bits for WiFi connection tracking
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
-
-static httpd_handle_t server_handle = NULL;
 
 // WiFi event handler
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
@@ -44,58 +38,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
     }
 }
 
-// HTTP GET handler for URI: /api/status
-static esp_err_t status_get_handler(httpd_req_t *req)
-{
-    actuator_set_led_blue(false);
-    char json_response[128];
-    
-    // Fetch live data from our soil_moisture component API
-    int raw_adc = soil_moisture_get_raw();
-    float percentage = soil_moisture_get_percentage();
-    
-    // Fetch weather metrics
-    float temp = 0.0f, hum = 0.0f, press = 0.0f;
-    bme280_manager_read(&temp, &hum, &press);
-    
-    // Format data into a standard JSON payload
-    snprintf(json_response, sizeof(json_response),
-             "{\"soil\":{\"raw\":%d,\"moisture_pct\":%.2f},\"environment\":{\"temperature_c\":%.2f,\"humidity_pct\":%.2f,\"pressure_hpa\":%.2f}}",
-             raw_adc, percentage, temp, hum, press);
-    // Set HTTP headers and send response
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, json_response, HTTPD_RESP_USE_STRLEN);
-    actuator_set_led_blue(true);
-    
-    return ESP_OK;
-}
-
-// URI structure mapping for the HTTP server
-static const httpd_uri_t status_uri = {
-    .uri       = HTTP_API_URI,
-    .method    = HTTP_GET,
-    .handler   = status_get_handler,
-    .user_ctx  = NULL
-};
-
-// Start the lightweight HTTP server
-static httpd_handle_t start_webserver(void)
-{
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.lru_purge_enable = true;
-
-    ESP_LOGI(TAG, "Starting HTTP server on port: '%d'", config.server_port);
-    if (httpd_start(&server_handle, &config) == ESP_OK) {
-        httpd_register_uri_handler(server_handle, &status_uri);
-        return server_handle;
-    }
-
-    ESP_LOGE(TAG, "Failed to launch HTTP server.");
-    return NULL;
-}
-
-esp_err_t network_manager_start(const char *ssid, const char *password, const char *hostname)
+esp_err_t wifi_start(const char *ssid, const char *password, const char *hostname)
 {
 
     s_wifi_event_group = xEventGroupCreate();
@@ -139,15 +82,11 @@ esp_err_t network_manager_start(const char *ssid, const char *password, const ch
 
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "Connected to AP SSID: %s", ssid);
-        actuator_set_led_blue(true);
         // 5. Initialize and configure mDNS service
         ESP_ERROR_CHECK(mdns_init());
         ESP_ERROR_CHECK(mdns_hostname_set(hostname));
         ESP_LOGI(TAG, "mDNS responder started. Device accessible via: http://%s.local", hostname);
         mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
-
-        // 6. Start the API webserver
-        start_webserver();
         return ESP_OK;
     } else if (bits & WIFI_FAIL_BIT) {
         ESP_LOGE(TAG, "Failed to connect to SSID: %s", ssid);

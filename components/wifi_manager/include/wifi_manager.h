@@ -9,4 +9,4 @@
  * @param hostname   The desired mDNS hostname (e.g., "rhodoshield" for rhodoshield.local).
  * @return esp_err_t ESP_OK on success, or appropriate error code.
  */
-esp_err_t network_manager_start(const char *ssid, const char *password, const char *hostname);
+esp_err_t wifi_start(const char *ssid, const char *password, const char *hostname);
