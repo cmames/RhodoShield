@@ -1,3 +1,4 @@
+// Copyright (c) 2026 C. Mames - Licensed under the GNU GPL v3
 #include "calibration.h"
 #include <stdio.h>
 #include <freertos/FreeRTOS.h>

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 C. Mames - Licensed under the GNU GPL v3
 #include "soil_moisture.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>

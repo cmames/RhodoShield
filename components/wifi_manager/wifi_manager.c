@@ -1,3 +1,4 @@
+// Copyright (c) 2026 C. Mames - Licensed under the GNU GPL v3
 #include "wifi_manager.h"
 #include <string.h>
 #include <freertos/FreeRTOS.h>

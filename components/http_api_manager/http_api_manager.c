@@ -1,3 +1,4 @@
+// Copyright (c) 2026 C. Mames - Licensed under the GNU GPL v3
 #include "http_api_manager.h"
 #include "soil_moisture.h"
 #include "bme280_manager.h"
@@ -49,17 +50,18 @@ static const httpd_uri_t status_uri = {
 };
 
 // Start the lightweight HTTP server
-httpd_handle_t api_webserver_start(void)
+esp_err_t api_webserver_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
+    config.server_port=HTTP_API_PORT;
 
-    ESP_LOGI(TAG, "Starting HTTP server on port: '%d'", config.server_port);
+    ESP_LOGI(TAG, "Starting HTTP server on port: '%d'", HTTP_API_PORT);
     if (httpd_start(&server_handle, &config) == ESP_OK) {
         httpd_register_uri_handler(server_handle, &status_uri);
-        return server_handle;
+        return ESP_OK;
     }
 
     ESP_LOGE(TAG, "Failed to launch HTTP server.");
-    return NULL;
+    return ESP_FAIL;
 }

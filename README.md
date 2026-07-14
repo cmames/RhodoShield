@@ -44,9 +44,10 @@ RhodoShield/
 ├── components/
 │   ├── actuator_manager/   # GPIO Push-Pull LED and Relay handlers
 │   ├── bme280_manager/     # I2C abstraction and Bosch sensor interface
-│   ├── network_manager/    # WiFi Station, mDNS, and HTTP server handlers
+│   ├── http_api_manager/   # API HTTP server handlers
 │   ├── sntp_manager/       # Posix Timezone DB synchronization layer
-│   └── soil_moisture/      # Oversampled ADC analog readings
+│   ├── soil_moisture/      # Oversampled ADC analog readings
+│   └── wifi_manager/       # WiFi Station and mDNS handlers
 ├── src/
 │   └── main.c              # Core initialization and FreeRTOS scheduler
 ├── stl/
@@ -122,4 +123,4 @@ Once initialized and bound to your local area network, the device responds to au
     ```
 
 ## License
-This project is open-source and registered under the GPLv3 License. Feel free to fork, adapt, and scale out for your custom botanical arrays.
+This project is open-source and registered under the GNU GPL v3 License. Feel free to fork, adapt, and scale out for your custom botanical arrays.

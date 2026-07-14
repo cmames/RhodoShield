@@ -1,3 +1,4 @@
+// Copyright (c) 2026 C. Mames - Licensed under the GNU GPL v3
 #include <stdio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -109,7 +110,17 @@ void rhodoshield(void)
     } else {
         actuator_set_led_blue(true);
         initialize_sntp();
-        api_webserver_start();
+        if (api_webserver_start() != ESP_OK) {
+            ESP_LOGE(TAG, "Critical: Failed to launch local REST API. Web services offline.");
+            for(int i=0;i<5;i++) {
+                actuator_set_led_blue(false);
+                actuator_set_led_red(true);
+                vTaskDelay(pdMS_TO_TICKS(500));
+                actuator_set_led_blue(true);
+                actuator_set_led_red(false);
+                vTaskDelay(pdMS_TO_TICKS(500));
+            }
+        }
     }
 
     ESP_LOGI(TAG, "RhodoShield firmware fully operational. Launching automation scheduler...");

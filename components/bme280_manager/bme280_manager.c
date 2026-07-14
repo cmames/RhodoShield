@@ -1,3 +1,4 @@
+// Copyright (c) 2026 C. Mames - Licensed under the GNU GPL v3
 #include "bme280_manager.h"
 #include <esp_log.h>
 #include <driver/i2c.h>

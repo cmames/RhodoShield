@@ -1,3 +1,4 @@
+// Copyright (c) 2026 C. Mames - Licensed under the GNU GPL v3
 #include "actuator_manager.h"
 #include <driver/gpio.h>
 #include <esp_log.h>
