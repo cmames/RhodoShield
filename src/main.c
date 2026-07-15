@@ -172,7 +172,7 @@ void floraguard(void)
     }
 }
 
-void __attribute__((used)) app_main(void)
+void app_main(void)
 {
 #ifdef RUN_CALIBRATION_MODE
     LOG_WARN("ROUTER", "Calibration mode activated.");
