@@ -122,7 +122,8 @@
             // Map history on available width
             const stepX = w / (history.length - 1);
 
-            history.forEach((val, index) => {
+            history.forEach((rawVal, index) => {
+                const val=rawVal/2.55;
                 const x = index * stepX;
                 const y = h - (h * val / 100);
 

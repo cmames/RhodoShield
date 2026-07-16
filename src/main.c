@@ -34,14 +34,13 @@ static void watering(float val) {
 static void automation_task(void *pvParameters)
 {
     LOG_INFO(TAG, "Control loop automation task started.");
-
+    int night_log_cooldown = 0;
     while (1) {
-        is_daylight_hours();
         int raw_moisture = soil_moisture_get_raw();
         float moisture_pct = soil_moisture_get_percentage();
 
-        log_manager_add_moisture_sample((uint8_t)moisture_pct);
-        
+        log_manager_add_moisture_sample((uint8_t)(moisture_pct*2.55f));
+
         // Hardware sensor safety check
         if (raw_moisture <= 0 || raw_moisture >= 4095) {
             LOG_ERROR(TAG, "Critical: Soil moisture sensor fault detected (Raw: %d)!", raw_moisture);
@@ -62,6 +61,7 @@ static void automation_task(void *pvParameters)
 
             // Agricultural control thresholds
             if (moisture_pct > SOIL_MOISTURE_CRITICAL_HIGH) {
+                night_log_cooldown=0;
                 LOG_WARN(TAG, "Warning: Soil moisture anomaly (>%.0f%%): %.2f%%", SOIL_MOISTURE_CRITICAL_HIGH, moisture_pct);
                 actuator_set_pump(false);
                 actuator_set_led_red(false);
@@ -74,6 +74,7 @@ static void automation_task(void *pvParameters)
 
                     // Conditional validation using our sntp_manager API
                     if (is_daylight_hours()) {
+                        night_log_cooldown = 0;
                         LOG_INFO(TAG, "Daylight active. Starting a watering cycle...");
 
                         int safety_counter = 0;
@@ -91,9 +92,15 @@ static void automation_task(void *pvParameters)
                         LOG_INFO(TAG, "Watering %d times", safety_counter);
 
                     } else {
-                        LOG_INFO(TAG, "Nighttime restriction active. Postponing irrigation.");
                         actuator_set_pump(false);
-                        vTaskDelay(pdMS_TO_TICKS(1800000));
+                        actuator_set_led_yellow(true);
+                        if (night_log_cooldown == 0) {
+                            LOG_WARN(TAG, "Alert: Soil dry (<%.0f%%): %.2f%%", SOIL_MOISTURE_CRITICAL_LOW, moisture_pct);
+                            LOG_INFO(TAG, "Nighttime restriction active. Postponing irrigation for 30 minutes.");
+                            night_log_cooldown = 30;
+                        } else {
+                            night_log_cooldown--;
+                        }
                     }
                 } 
                 else {
