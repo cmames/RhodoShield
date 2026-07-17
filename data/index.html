@@ -91,12 +91,13 @@
         // Target API Endpoint matching your network configuration
         const API_URL = '/api/status';
 
-        function drawChart(history) {
-            const canvas = document.getElementById('moisture-chart');
+        function drawChart(canvas, history) {
             const ctx = canvas.getContext('2d');
             const w = canvas.width;
             const h = canvas.height;
-            let startX = 0;
+            let txt=ctx.measureText("99%");
+            txt.height=txt.fontBoundingBoxAscent+txt.fontBoundingBoxDescent;
+            let startX = txt.width+4;
 
             // Clear previous canvas
             ctx.clearRect(0, 0, w, h);
@@ -104,18 +105,24 @@
             // Draw background grid (25%, 50%, 75%)
             ctx.strokeStyle = '#abbdd4';
             ctx.lineWidth = 0.5;
-            for (let l = 1; l < 4; l++) {
-                let text=(l*25)+"%";
-                let yLine = h - (h * (l * 25) / 100);
+            let steps=h/txt.height;
+            if (steps<2) steps=1;
+            else if (steps<4) steps=2;
+            else if (steps<5) steps=4;
+            else if (steps<10) steps=5;
+            else if (steps<20) steps=10;
+            else steps=20;
+            for (let l = 1; l < steps; l++) {
+                let text=(l*(100/steps))+"%";
+                if (l*(100/steps) < 10) text += " ";
+                let yLine = h - (h * (l * (100/steps)) / 100);
                 ctx.textBaseline = "middle";
                 ctx.fillText(text,0,yLine);
                 ctx.strokeText(text,0,yLine);
-                let txt=ctx.measureText(text);
                 ctx.beginPath();
                 ctx.moveTo(0, yLine);
                 ctx.lineTo(w, yLine);
                 ctx.stroke();
-                if (startX<(txt.width+4)) startX=txt.width+4;
             }
             ctx.beginPath();
             ctx.moveTo(startX, 0);
@@ -167,7 +174,7 @@
                     document.getElementById('env-press').innerText = data.environment.pressure_hpa.toFixed(2) + ' hPa';
 
                     // Draw chart
-                    drawChart(data.moisture_history);
+                    drawChart(document.getElementById('moisture-chart'), data.moisture_history);
 
                     // Process and Color-code Logs array dynamically
                     const logsContainer = document.getElementById('logs-container');
