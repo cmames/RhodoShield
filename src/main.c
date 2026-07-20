@@ -51,6 +51,7 @@ static void automation_task(void *pvParameters)
             // Test if previous error
             if (moisture_sensor_failure_tripped) {
                 LOG_ERROR(TAG, "Watering is limited due to possible hardware failure. System requires a reset.");
+                actuator_set_pump(false);
                 for (int i=0; i<10; i++) {
                     actuator_set_led_red(false);
                     vTaskDelay(pdMS_TO_TICKS(500));
@@ -69,6 +70,7 @@ static void automation_task(void *pvParameters)
             } else {
                 if (moisture_pct < SOIL_MOISTURE_CRITICAL_LOW) {
                     LOG_WARN(TAG, "Alert: Soil dry (<%.0f%%): %.2f%%", SOIL_MOISTURE_CRITICAL_LOW, moisture_pct);
+                    actuator_set_pump(false);
                     actuator_set_led_red(false);
                     actuator_set_led_yellow(true);
 
@@ -131,6 +133,7 @@ void floraguard(void)
     }
 
     // Power-On Self-Test (POST) visual check
+    actuator_set_pump(false);
     actuator_set_led_blue(true);
     actuator_set_led_yellow(true);
     actuator_set_led_red(true);
