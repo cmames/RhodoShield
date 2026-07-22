@@ -36,99 +36,106 @@ static void automation_task(void *pvParameters)
     LOG_INFO(TAG, "Control loop automation task started.");
     int night_log_cooldown = 0;
 
-
     while (1) {
         int raw_moisture = soil_moisture_get_raw();
         float moisture_pct = soil_moisture_get_percentage();
 
-        log_manager_add_moisture_sample((uint8_t)(moisture_pct*2.55f));
+        log_manager_add_moisture_sample((uint8_t)(moisture_pct * 2.55f));
 
-        // Hardware sensor safety check
+        // 1. Hardware sensor safety check
         if (raw_moisture <= 0 || raw_moisture >= 4095) {
             LOG_ERROR(TAG, "Critical: Soil moisture sensor fault detected (Raw: %d)!", raw_moisture);
             actuator_set_pump(false);
             actuator_set_led_yellow(false);
             actuator_set_led_red(true);
         } else {
-            // Test if previous error
+            // 2. Anomaly recovery test: if moisture is back above CRITICAL_LOW, clear the hardware fault flag
             if (moisture_sensor_failure_tripped) {
-                LOG_ERROR(TAG, "Watering is limited due to possible hardware failure. System requires a reset.");
-                actuator_set_pump(false);
-                for (int i=0; i<10; i++) {
+                if (moisture_pct >= SOIL_MOISTURE_CRITICAL_LOW) {
+                    moisture_sensor_failure_tripped = false;
+                    LOG_INFO(TAG, "Hardware fault cleared: Soil moisture restored (%.2f%%).", moisture_pct);
+                    actuator_set_led_red(false);
+                } else {
+                    LOG_ERROR(TAG, "Watering is limited due to possible failure. Reset required.");
+                    actuator_set_pump(false);
                     actuator_set_led_red(false);
                     vTaskDelay(pdMS_TO_TICKS(500));
                     actuator_set_led_red(true);
-                    vTaskDelay(pdMS_TO_TICKS(500));
                 }
-            }
-
-            // Agricultural control thresholds
-            if (moisture_pct > SOIL_MOISTURE_CRITICAL_HIGH) {
-                night_log_cooldown=0;
-                LOG_WARN(TAG, "Warning: Soil moisture anomaly (>%.0f%%): %.2f%%", SOIL_MOISTURE_CRITICAL_HIGH, moisture_pct);
-                actuator_set_pump(false);
-                actuator_set_led_red(false);
-                actuator_set_led_yellow(true);
             } else {
-                if (moisture_pct < SOIL_MOISTURE_CRITICAL_LOW) {
-                    LOG_WARN(TAG, "Alert: Soil dry (<%.0f%%): %.2f%%", SOIL_MOISTURE_CRITICAL_LOW, moisture_pct);
+
+                // 3. Agricultural control thresholds
+                if (moisture_pct > SOIL_MOISTURE_CRITICAL_HIGH) {
+                    night_log_cooldown = 0;
+                    LOG_WARN(TAG, "Warning: Soil moisture anomaly (>%.0f%%): %.2f%%", SOIL_MOISTURE_CRITICAL_HIGH, moisture_pct);
                     actuator_set_pump(false);
                     actuator_set_led_red(false);
                     actuator_set_led_yellow(true);
-
-                    // Conditional validation using our sntp_manager API
-                    if (is_daylight_hours()) {
-                        night_log_cooldown = 0;
-                        LOG_INFO(TAG, "Daylight active. Starting a watering cycle...");
-
-                        int safety_counter = 0;
-                        const int MAX_WATERING_ATTEMPTS = 10;
-
-                        float previous_moisture = moisture_pct;
-                        float last_step_gain = 0.0f;
-                        float predicted_next_moisture = 0.0f;
-
-                        do {
-                            watering(moisture_pct);
-                            if (++safety_counter >= MAX_WATERING_ATTEMPTS) {
-                                LOG_ERROR(TAG, "Watering safety timeout reached! Locking system.");
-                                moisture_sensor_failure_tripped = true;
-                                actuator_set_pump(false);
-                            }
-                            moisture_pct = soil_moisture_get_percentage();
-                            last_step_gain = moisture_pct - previous_moisture;
-                            if (last_step_gain < 0.0f) {
-                                last_step_gain = 0.0f; // Handle sensor noise if moisture reading slightly drops
-                            }
-                            predicted_next_moisture = moisture_pct + last_step_gain;
-                            previous_moisture = moisture_pct;
-                            LOG_INFO(TAG, "Step %d: current=%.2f%%, gain=+%.2f%%, predicted_next=%.2f%%", 
-                                safety_counter, moisture_pct, last_step_gain, predicted_next_moisture);
-                        } while (
-                            (WATER_UNTIL_SATURATION == 1) && 
-                            (!moisture_sensor_failure_tripped) && 
-                            (moisture_pct < SOIL_MOISTURE_CRITICAL_HIGH) && 
-                            (predicted_next_moisture < SOIL_MOISTURE_CRITICAL_HIGH)
-                        );
-                        LOG_INFO(TAG, "Watering completed with %d cycles", safety_counter);
-
-                    } else {
-                        actuator_set_pump(false);
-                        actuator_set_led_yellow(true);
-                        if (night_log_cooldown == 0) {
+                } else {
+                    if (moisture_pct < SOIL_MOISTURE_CRITICAL_LOW) {
+                        
+                        // Only proceed with watering if no persistent failure was tripped
+                        if (!moisture_sensor_failure_tripped) {
                             LOG_WARN(TAG, "Alert: Soil dry (<%.0f%%): %.2f%%", SOIL_MOISTURE_CRITICAL_LOW, moisture_pct);
-                            LOG_INFO(TAG, "Nighttime restriction active. Postponing irrigation for 30 minutes.");
-                            night_log_cooldown = 30;
-                        } else {
-                            night_log_cooldown--;
+                            actuator_set_pump(false);
+                            actuator_set_led_red(false);
+                            actuator_set_led_yellow(true);
+
+                            if (is_daylight_hours()) {
+                                night_log_cooldown = 0;
+                                LOG_INFO(TAG, "Daylight active. Starting a watering cycle...");
+
+                                int safety_counter = 0;
+                                const int MAX_WATERING_ATTEMPTS = 10;
+
+                                float previous_moisture = moisture_pct;
+                                float last_step_gain = 0.0f;
+                                float predicted_next_moisture = 0.0f;
+
+                                do {
+                                    watering(moisture_pct);
+                                    if (++safety_counter >= MAX_WATERING_ATTEMPTS) {
+                                        LOG_ERROR(TAG, "Watering safety timeout reached! Locking system.");
+                                        moisture_sensor_failure_tripped = true;
+                                        actuator_set_pump(false);
+                                        break; // Exit loop immediately on safety trip
+                                    }
+                                    moisture_pct = soil_moisture_get_percentage();
+                                    last_step_gain = moisture_pct - previous_moisture;
+                                    if (last_step_gain < 0.0f) {
+                                        last_step_gain = 0.0f;
+                                    }
+                                    predicted_next_moisture = moisture_pct + last_step_gain;
+                                    previous_moisture = moisture_pct;
+                                    LOG_INFO(TAG, "Step %d: current=%.2f%%, gain=+%.2f%%, predicted_next=%.2f%%", 
+                                        safety_counter, moisture_pct, last_step_gain, predicted_next_moisture);
+                                } while (
+                                    (WATER_UNTIL_SATURATION == 1) && 
+                                    (!moisture_sensor_failure_tripped) && 
+                                    (moisture_pct < SOIL_MOISTURE_CRITICAL_HIGH) && 
+                                    (predicted_next_moisture < SOIL_MOISTURE_CRITICAL_HIGH)
+                                );
+                                LOG_INFO(TAG, "Watering sequence completed with %d cycles", safety_counter);
+
+                            } else {
+                                actuator_set_pump(false);
+                                actuator_set_led_yellow(true);
+                                if (night_log_cooldown == 0) {
+                                    LOG_WARN(TAG, "Alert: Soil dry (<%.0f%%): %.2f%%", SOIL_MOISTURE_CRITICAL_LOW, moisture_pct);
+                                    LOG_INFO(TAG, "Nighttime restriction active. Postponing irrigation for 30 minutes.");
+                                    night_log_cooldown = 30;
+                                } else {
+                                    night_log_cooldown--;
+                                }
+                            }
                         }
+                    } 
+                    else {
+                        // Safe zone: nominal operation
+                        actuator_set_pump(false);
+                        actuator_set_led_red(false);
+                        actuator_set_led_yellow(false);
                     }
-                } 
-                else {
-                    // Safe zone
-                    actuator_set_pump(false);
-                    actuator_set_led_red(false);
-                    actuator_set_led_yellow(false);
                 }
             }
         }
