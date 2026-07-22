@@ -4,16 +4,16 @@
 #include <freertos/task.h>
 #include <esp_adc/adc_oneshot.h>
 #include <esp_check.h>
+#include <limits.h>
 
 static const char *TAG = "SOIL_MOISTURE";
 
 // Oversampling configuration for software noise reduction
-#define OVERSAMPLING_SAMPLES    8
+#define OVERSAMPLING_SAMPLES    16
 
 static adc_oneshot_unit_handle_t adc1_handle = NULL;
 
-esp_err_t soil_moisture_init(void)
-{
+esp_err_t soil_moisture_init(void) {
     // 1. Initialize ADC Unit
     adc_oneshot_unit_init_cfg_t init_config = {
         .unit_id = MOISTURE_ADC_UNIT,
@@ -31,8 +31,7 @@ esp_err_t soil_moisture_init(void)
     return ESP_OK;
 }
 
-int soil_moisture_get_raw(void)
-{
+int soil_moisture_get_raw(void) {
     int raw_val = 0;
     if (adc1_handle != NULL) {
         ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, MOISTURE_ADC_CHANNEL, &raw_val));
@@ -40,19 +39,21 @@ int soil_moisture_get_raw(void)
     return raw_val;
 }
 
-float soil_moisture_get_percentage(void)
-{
+float soil_moisture_get_percentage(void) {
     long accumulated_raw = 0;
     int raw_reading = 0;
-
+    int raw_min = INT_MAX;
+    int raw_max = 0;
     // Apply oversampling to smooth out analog noise
     for (int i = 0; i < OVERSAMPLING_SAMPLES; i++) {
         raw_reading = soil_moisture_get_raw();
+        if (raw_reading > raw_max) raw_max=raw_reading;
+        if (raw_reading < raw_min) raw_min=raw_reading;
         accumulated_raw += raw_reading;
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
-    
-    float mean_raw = (float)accumulated_raw / OVERSAMPLING_SAMPLES;
+    accumulated_raw = accumulated_raw - raw_max - raw_min;
+    float mean_raw = (float)accumulated_raw / (OVERSAMPLING_SAMPLES - 2);
 
     // Constrain the reading within calibrated bounds
     if (mean_raw > MOISTURE_ADC_MAX_DRY) mean_raw = MOISTURE_ADC_MAX_DRY;
@@ -63,3 +64,5 @@ float soil_moisture_get_percentage(void)
 
     return percentage;
 }
+
+
