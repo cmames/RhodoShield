@@ -50,7 +50,7 @@ float soil_moisture_get_percentage(void) {
         if (raw_reading > raw_max) raw_max=raw_reading;
         if (raw_reading < raw_min) raw_min=raw_reading;
         accumulated_raw += raw_reading;
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
     accumulated_raw = accumulated_raw - raw_max - raw_min;
     float mean_raw = (float)accumulated_raw / (OVERSAMPLING_SAMPLES - 2);

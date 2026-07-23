@@ -159,14 +159,31 @@ void floraguard(void)
     }
 
     // Power-On Self-Test (POST) visual check
-    actuator_set_pump(false);
+    actuator_set_pump(true);
     actuator_set_led_blue(true);
     actuator_set_led_yellow(true);
     actuator_set_led_red(true);
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(200));
+    actuator_set_pump(false);
+    vTaskDelay(pdMS_TO_TICKS(800));
     actuator_set_led_blue(false);
     actuator_set_led_yellow(false);
     actuator_set_led_red(false);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    actuator_set_led_red(true);
+    vTaskDelay(pdMS_TO_TICKS(200));
+    actuator_set_led_yellow(true);
+    actuator_set_led_red(false);
+    vTaskDelay(pdMS_TO_TICKS(200));
+    actuator_set_led_blue(true);
+    actuator_set_led_yellow(false);
+    vTaskDelay(pdMS_TO_TICKS(200));
+    actuator_set_led_blue(false);
+    actuator_set_pump(true);
+    vTaskDelay(pdMS_TO_TICKS(200));
+    actuator_set_pump(false);
+
+
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
